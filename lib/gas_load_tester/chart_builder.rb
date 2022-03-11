@@ -265,7 +265,7 @@ module GasLoadTester
             }
           }
         }
-      )
+      ).gsub('/n', '')
     end
 
     def build_error_table(test)

@@ -24,7 +24,6 @@ module GasLoadTester
     end
 
     def run(args = {}, &block)
-      args ||= {}
       args[:output] ||= args['output']
       args[:file_name] ||= args['file_name']
       args[:header] ||= args['header']
@@ -33,15 +32,12 @@ module GasLoadTester
       @progressbar = ProgressBar.create(
         :title => "Load test",
         :starting_at => 0,
-        :total => self.time+10,
+        :total => self.time,
         :format => "%a %b\u{15E7}%i %p%% %t",
         :progress_mark  => ' ',
         :remainder_mark => "\u{FF65}"
       )
-      load_test(block)
-      if args[:output]
-        export_file({file_name: args[:file_name], header: args[:header], description: args[:description]})
-      end
+      load_test(block, args)
     ensure
       @run = true
     end
@@ -88,7 +84,7 @@ module GasLoadTester
       self.results.collect{|key, values| values.collect(&:time) }.flatten
     end
 
-    def load_test(block)
+    def load_test(block, args = {})
       threads = []
       rps = request_per_second
       rps_decimal = rps.modulo(1)
@@ -123,9 +119,12 @@ module GasLoadTester
         cal_sleep = 0 if cal_sleep < 0
         sleep(cal_sleep)
         @progressbar.increment
+        if args[:output]
+          export_file({file_name: args[:file_name], header: args[:header], description: args[:description]})
+        end
+        ThreadsWait.all_waits(*threads)
+        threds = []
       end
-      ThreadsWait.all_waits(*threads)
-      @progressbar.progress += 10
     end
 
     def build_result(args)
