@@ -32,8 +32,10 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'ruby-progressbar', '~> 1.8.1'
   spec.add_runtime_dependency 'chartkick', '~> 2.2.2'
+  spec.add_runtime_dependency "aws-sdk-s3", "~> 1.40"
 
   spec.add_development_dependency "bundler", "~> 2.3.9"
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "rspec", "~> 3.0"
+
 end

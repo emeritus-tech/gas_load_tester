@@ -1,4 +1,5 @@
 require 'ruby-progressbar'
+require 'aws-sdk-s3'
 require 'thwait'
 
 module GasLoadTester
@@ -28,6 +29,8 @@ module GasLoadTester
       args[:file_name] ||= args['file_name']
       args[:header] ||= args['header']
       args[:description] ||= args['description']
+      args[:upload_bucket] ||= args['upload_bucket']
+      args[:upload_region] ||= args['upload_region']
       puts "Running test (client: #{self.client}, time: #{self.time})"
       @progressbar = ProgressBar.create(
         :title => "Load test",
@@ -91,6 +94,7 @@ module GasLoadTester
       full_rps = (rps - rps_decimal).to_i
       stacking_decimal = 0.0
       counter = 0
+      init_time = Time.now
       self.time.times do |index|
         self.results[index] = []
         start_index_time = Time.now
@@ -119,8 +123,15 @@ module GasLoadTester
         cal_sleep = 0 if cal_sleep < 0
         sleep(cal_sleep)
         @progressbar.increment
-        if args[:output]
+        if args[:output] && (index.modulo(10) == 0 || index == self.time - 1)
           export_file({file_name: args[:file_name], header: args[:header], description: args[:description]})
+          if args[:upload_bucket]
+            ::Aws::S3::Object.new(
+              args[:upload_bucket],
+              "#{args[:file_name]}_#{init_time.to_i}.html",
+              region: args[:upload_region]
+            ).upload_file("#{args[:file_name]}.html")
+          end
         end
         ThreadsWait.all_waits(*threads)
         threds = []
