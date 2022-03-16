@@ -62,11 +62,11 @@ module GasLoadTester
     end
 
     def summary_min_time
-      all_result_time.sort.first*1000
+      (all_result_time.sort.first||0)*1000
     end
 
     def summary_max_time
-      all_result_time.sort.last*1000
+      (all_result_time.sort.last||0)*1000
     end
 
     def summary_avg_time
@@ -109,6 +109,7 @@ module GasLoadTester
         end
         (full_rps + additional_client).times do
           counter += 1
+          threads = []
           threads << Thread.new do
             begin
               start_time = Time.now
@@ -134,7 +135,7 @@ module GasLoadTester
           end
         end
         ThreadsWait.all_waits(*threads)
-        threds = []
+        threads = nil
       end
     end
 
