@@ -96,13 +96,13 @@ module GasLoadTester
                   group_data = group_test.tests.select{|test| test.is_run? }.collect{|test|
                     [
                       test.client,
-                      test.time,
+                      test.pool_size,
                       test.summary_avg_time.round(4),
                       test.summary_min_time.round(4),
                       test.summary_max_time.round(4),
                       test.summary_success,
                       test.summary_error,
-                      test.request_per_second.round(2)
+                      test.total_epochs
                     ]
                   }
                   min_avg = group_data.collect{|test_data| test_data[2] }.sort.first
@@ -251,7 +251,7 @@ module GasLoadTester
           adapter: "google",
           "colors": ["#FFD919", "#23FF39", "#FF2A27", "#433DFF"],
           "library": {
-            title: "Load test's result (Client: #{test.client}, Time: #{test.time} sec.)",
+            title: "Load test's result (Client: #{test.client}, Pool Size: #{test.pool_size})",
             legend: {position: 'top'},
             vAxes: {
               0 => {logScale: false, title: 'User (concurrent)'},

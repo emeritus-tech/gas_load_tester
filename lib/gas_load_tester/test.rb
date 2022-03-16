@@ -4,22 +4,22 @@ require 'thwait'
 
 module GasLoadTester
   class Test
-    attr_accessor :client, :time, :results
+    attr_accessor :client, :pool_size, :results
 
     DEFAULT = {
       client: 1000,
-      time: 300
+      pool_size: 100
     }
 
     def initialize(args = {})
       args ||= {}
       args[:client] ||= args['client']
-      args[:time] ||= args['time']
+      args[:pool_size] ||= args['pool_size']
       args.reject!{|key, value| value.nil? }
       args = DEFAULT.merge(args)
 
       self.client = args[:client]
-      self.time = args[:time]
+      self.pool_size = args[:pool_size]
       self.results = {}
       @run = false
     end
@@ -31,11 +31,11 @@ module GasLoadTester
       args[:description] ||= args['description']
       args[:upload_bucket] ||= args['upload_bucket']
       args[:upload_region] ||= args['upload_region']
-      puts "Running test (client: #{self.client}, time: #{self.time})"
+      puts "Running test (client: #{self.client}, pool size: #{self.pool_size})"
       @progressbar = ProgressBar.create(
         :title => "Load test",
         :starting_at => 0,
-        :total => self.time,
+        :total => self.client,
         :format => "%a %b\u{15E7}%i %p%% %t",
         :progress_mark  => ' ',
         :remainder_mark => "\u{FF65}"
@@ -49,8 +49,8 @@ module GasLoadTester
       @run
     end
 
-    def request_per_second
-      self.client/self.time.to_f
+    def total_epochs
+      (self.client/self.pool_size.to_f).ceil
     end
 
     def export_file(args = {})
@@ -88,54 +88,39 @@ module GasLoadTester
     end
 
     def load_test(block, args = {})
+      jobs = Queue.new
+      self.client.times{|i| jobs.push i}
       threads = []
-      rps = request_per_second
-      rps_decimal = rps.modulo(1)
-      full_rps = (rps - rps_decimal).to_i
-      stacking_decimal = 0.0
-      counter = 0
       init_time = Time.now
-      self.time.times do |index|
-        self.results[index] = []
-        start_index_time = Time.now
-        stacking_decimal += rps_decimal
-        additional_client = 0
-        if stacking_decimal > 1
-          additional_client = 1
-          stacking_decimal -= 1
-        end
-        if (index+1) == self.time && (counter + (full_rps + additional_client)) < self.client
-          additional_client += (self.client - (counter + (full_rps + additional_client)))
-        end
-        (full_rps + additional_client).times do
-          counter += 1
-          threads = []
-          threads << Thread.new do
-            begin
+
+      self.pool_size.times do |index|
+        threads << Thread.new do
+          begin
+            while job_number = jobs.pop(true)
               start_time = Time.now
-              block.call
-              self.results[index] << build_result({pass: true, time: Time.now-start_time})
-            rescue => error
-              self.results[index] << build_result({pass: false, error: error, time: Time.now-start_time})
+              self.results[(start_time - init_time).to_i] ||= []
+              begin
+                block.call
+                self.results[(start_time - init_time).to_i] << build_result({pass: true, time: Time.now-start_time})
+              rescue => error
+                self.results[(start_time - init_time).to_i] << build_result({pass: false, error: error, time: Time.now-start_time})
+              end
+              @progressbar.increment
+              if args[:output] && (job_number.modulo(self.pool_size) == 0 || job_number == self.client - 1)
+                export_file({file_name: args[:file_name], header: args[:header], description: args[:description]})
+                if args[:upload_bucket]
+                  ::Aws::S3::Object.new(
+                    args[:upload_bucket],
+                    "#{args[:file_name]}_#{init_time.to_i}.html",
+                    region: args[:upload_region]
+                  ).upload_file("#{args[:file_name]}.html")
+                end
+              end
             end
-          end
-        end
-        cal_sleep = 1-(Time.now-start_index_time)
-        cal_sleep = 0 if cal_sleep < 0
-        sleep(cal_sleep)
-        @progressbar.increment
-        if args[:output] && (index.modulo(10) == 0 || index == self.time - 1)
-          export_file({file_name: args[:file_name], header: args[:header], description: args[:description]})
-          if args[:upload_bucket]
-            ::Aws::S3::Object.new(
-              args[:upload_bucket],
-              "#{args[:file_name]}_#{init_time.to_i}.html",
-              region: args[:upload_region]
-            ).upload_file("#{args[:file_name]}.html")
+          rescue ThreadError
           end
         end
         ThreadsWait.all_waits(*threads)
-        threads = nil
       end
     end
 

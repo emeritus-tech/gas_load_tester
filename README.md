@@ -21,7 +21,7 @@ require 'gas_load_tester'
 #### For simple usage
 
 ```ruby
-simple_test = GasLoadTester::Test.new({client: 10000, time: 60})
+simple_test = GasLoadTester::Test.new({client: 10000, pool_size: 60})
 simple_test.run do
   RestClient.get("https://www.mysite.com", {})
 end
@@ -31,7 +31,7 @@ simple_test.results
 #### With html output
 
 ```ruby
-simple_test = GasLoadTester::Test.new({client: 10000, time: 60})
+simple_test = GasLoadTester::Test.new({client: 10000, pool_size: 60})
 simple_test.run(output: true, file_name: '/mytest/mysite_result') do
   RestClient.get("https://www.mysite.com", {})
 end
@@ -45,9 +45,9 @@ end
 
 ```ruby
 simple_group_test = GasLoadTester::GroupTest.new([
-  {"client" => 100, "time" => 5},
-  {"client" => 150, "time" => 10},
-  {"client" => 160, "time" => 7}
+  {"client" => 100, "pool_size" => 5},
+  {"client" => 150, "pool_size" => 10},
+  {"client" => 160, "pool_size" => 7}
 ])
 simple_group_test.run(output: true, file_name: '/mytest/mysite_group_result.html') do
   RestClient.get("https://www.mysite.com", {})
